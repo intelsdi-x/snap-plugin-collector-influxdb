@@ -3,7 +3,7 @@ sudo: false
 language: go
 go:
 - 1.6.3
-- 1.7.1
+- 1.7.3
 env:
   global:
   - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
@@ -42,7 +42,7 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-collector-influxdb
     branch: master
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.1"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
 - provider: s3
   access_key_id: AKIAINMB43VSSPFZISAA
   secret_access_key:
@@ -56,7 +56,7 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-collector-influxdb
     tags: true
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.1"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
 - provider: releases
   api_key:
     secure: Nv3ZD/WL+AyQhs7tV3RMZS6EYGPzZXHjPdA+0Dg6Pq7wAUpqRIlwRAX5iD5rxXbfBb5daTeACbvxsWpDGKxwLaKykcA32mKJpff6At7WWql16U152flg3Z1eOC+wFT0JgpZQ8WThSsW/zqEhgiSfNSAC2emzJ1WqCmQ2URPkUjdzYJ6oyG07U7dDDtNPKyt/qOByQ/2981pFErYcoHhA+CK4oFsxEYzy7cVruj0KOqkP3xDHgjS6fOPQbr5p69gSfpBN4/CcGQ82UEsmEghLUbAAdo8t3qzuGR7vtA5dLheQfMCwHv+JdkvoZFVI0cu/vKVG69jGPq1DRzwalN/ZOx4WzkgGyN9EoDZ4r7oSf55iyd+O8eM7ND4WoxWPivzALYfmKnTkXm4V11JAAe9yiNWadLT5//P3kEfx2HfTFhXhsARqvwcnw26ypzDctFqcOKiTaenpaPqr5bkQXAYBUKS2fPYoiPmou6vyahBuen/NVu1Kcc+xyZvdAwB5KwJvQwBAbrtBR1REk0QgWcepq+kZjH68vS1191XGezb9v+OaXy35DiXKnCqv3fXrE9tNXtEKNG9MOwf6ykmaYBzN/axsWAhlBqc3Qg30s5bBQdqzSRQ9ERQ6TQoUfXiBLm81clnrvuWGmZ+r9Efm4O++6kUvBcqmq0OJEajSkW/6eYY=
@@ -66,4 +66,4 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-collector-influxdb
     tags: true
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.1"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
