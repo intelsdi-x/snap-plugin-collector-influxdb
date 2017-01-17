@@ -17,26 +17,22 @@ package influxdb
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/intelsdi-x/snap/control/plugin"
-	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
-	"github.com/intelsdi-x/snap/core"
+	log "github.com/Sirupsen/logrus"
+
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 
 	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb/monitor"
-	"github.com/intelsdi-x/snap-plugin-utilities/config"
 )
 
 const (
 	// Name of plugin
 	Name = "influxdb"
 	// Version of plugin
-	Version = 4
-	// Type of plugin
-	Type = plugin.CollectorPluginType
+	Version = 5
 
 	nsVendor = "intel"
 	nsClass  = "influxdb"
@@ -54,7 +50,7 @@ const (
 // prefix in metric namespace
 var prefix = []string{nsVendor, nsClass}
 
-// InfluxdbCollector holds data retrived from influxDB system monitoring
+// InfluxdbCollector holds data retrieved from influxDB system monitoring
 type InfluxdbCollector struct {
 	data        map[string]datum
 	service     monitor.Monitoring
@@ -67,83 +63,126 @@ type datum struct {
 }
 
 // New returns new instance of snap-plugin-collector-influxdb
-func New() *InfluxdbCollector {
+func New() plugin.Collector {
 	return &InfluxdbCollector{initialized: false, service: &monitor.Monitor{}, data: map[string]datum{}}
 }
 
 // GetConfigPolicy returns a ConfigPolicy
-func (ic *InfluxdbCollector) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
-	return cpolicy.New(), nil
+func (ic *InfluxdbCollector) GetConfigPolicy() (plugin.ConfigPolicy, error) {
+	policy := plugin.NewConfigPolicy()
+	cfgKey := []string{"intel", "influxdb"}
+	policy.AddNewStringRule(cfgKey, "host", false, plugin.SetDefaultString("localhost"))
+	policy.AddNewIntRule(cfgKey, "port", false, plugin.SetDefaultInt(8086))
+	policy.AddNewStringRule(cfgKey, "user", true)
+	policy.AddNewStringRule(cfgKey, "password", true)
+	return *policy, nil
 }
 
 // GetMetricTypes returns list of metrics based on influxDB system monitoring
-func (ic *InfluxdbCollector) GetMetricTypes(cfg plugin.ConfigType) ([]plugin.MetricType, error) {
-	mts := []plugin.MetricType{}
+func (ic *InfluxdbCollector) GetMetricTypes(cfg plugin.Config) ([]plugin.Metric, error) {
+	mts := []plugin.Metric{}
+	if err := ic.init(cfg); err != nil {
+		return nil, err
+	}
 
-	ic.init(cfg)
-	ic.getStatistics()  // get statistical information about influxDB
-	ic.getDiagnostics() // get diagnostic information about influxDB
+	// get InfluxDB internal statistics
+	if err := ic.getStatistics(); err != nil {
+		return nil, fmt.Errorf("Cannot get influxdb internal statistics, err=%s", err.Error())
+	}
 
-	for ns, dat := range ic.data {
-		mts = append(mts, plugin.MetricType{Namespace_: core.NewNamespace(splitNamespace(ns)...), Tags_: dat.tags})
+	// get InfluxDB internal diagnostics info
+	if err := ic.getDiagnostics(); err != nil {
+		return nil, fmt.Errorf("Cannot get influxdb diagnostic information, err=%s", err.Error())
+	}
+
+	for key, dat := range ic.data {
+		mts = append(mts, plugin.Metric{
+			Namespace: plugin.NewNamespace(prefix...).AddStaticElements(splitKey(key)...),
+			Tags:      dat.tags,
+			Version:   Version,
+		})
 	}
 
 	return mts, nil
 }
 
 // CollectMetrics collects given metrics
-func (ic *InfluxdbCollector) CollectMetrics(mts []plugin.MetricType) ([]plugin.MetricType, error) {
-	metrics := []plugin.MetricType{}
-
+func (ic *InfluxdbCollector) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, error) {
 	if !ic.initialized {
-		ic.init(mts[0])     // if CollectMetrics() is called, mts has one item at least
-		ic.getDiagnostics() // get diagnostic information (once only)
-	}
-
-	ic.getStatistics() // get statistical information
-
-	for _, m := range mts {
-		if dat, ok := ic.data[strings.TrimLeft(m.Namespace().String(), "/")]; ok {
-			metric := plugin.MetricType{
-				Namespace_: m.Namespace(),
-				Data_:      dat.value,
-				Timestamp_: time.Now(),
-				Tags_:      dat.tags,
-			}
-
-			metrics = append(metrics, metric)
+		// mts has one item at least if CollectMetrics() has been called
+		if err := ic.init(mts[0].Config); err != nil {
+			return nil, err
+		}
+		// get diagnostic information (once only)
+		if err := ic.getDiagnostics(); err != nil {
+			return nil, fmt.Errorf("Cannot get influxdb diagnostic information, err=%s", err.Error())
 		}
 	}
 
-	return metrics, nil
+	// get statistics
+	if err := ic.getStatistics(); err != nil {
+		return nil, fmt.Errorf("Cannot get influxdb internal statistics, err=%s", err.Error())
+	}
+
+	for i := range mts {
+		ns := mts[i].Namespace
+		if dat, ok := ic.data[reflectKey(ns)]; ok {
+			mts[i].Data = dat.value
+			mts[i].Timestamp = time.Now()
+			mts[i].Tags = dat.tags
+		} else {
+			// only log about it
+			log.WithFields(log.Fields{
+				"function": "CollectMetrics",
+				"metric":   ns,
+			}).Error("No data found")
+		}
+	}
+
+	return mts, nil
 }
 
-// init initializes InfluxdbCollector instance based on config `cfg`
-func (ic *InfluxdbCollector) init(cfg interface{}) {
-	settings, err := config.GetConfigItems(cfg, "host", "port", "user", "password")
-	handleErr(err)
+// init initializes InfluxdbCollector instance based on plugin config `cfg`
+func (ic *InfluxdbCollector) init(cfg plugin.Config) error {
+	host, err := cfg.GetString("host")
+	if err != nil {
+		return fmt.Errorf("Cannot get a hostname from plugin config, err=%s", err.Error())
+	}
 
-	err = ic.service.InitURLs(settings)
-	handleErr(err)
+	port, err := cfg.GetInt("port")
+	if err != nil {
+		return fmt.Errorf("Cannot get a port from plugin config, err=%s", err.Error())
+	}
+
+	user, err := cfg.GetString("user")
+	if err != nil {
+		return fmt.Errorf("Cannot get a username from plugin config, err=%s", err.Error())
+	}
+
+	passwd, err := cfg.GetString("password")
+	if err != nil {
+		return fmt.Errorf("Cannot get a password from plugin config, err=%s", err.Error())
+	}
+
+	if err := ic.service.InitURLs(host, port, user, passwd); err != nil {
+		return err
+	}
 
 	ic.initialized = true
+	log.WithFields(log.Fields{
+		"function": "init",
+	}).Info("Succeeded plugin initialization")
+	return nil
 }
 
 // getDiagnostics executes the command "SHOW DIAGNOSTICS" (indirectly)
-func (ic *InfluxdbCollector) getDiagnostics() {
-	err := ic.getData(typeDiagn)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Cannot get influxdb diagnostic information, err=", err)
-	}
+func (ic *InfluxdbCollector) getDiagnostics() error {
+	return ic.getData(typeDiagn)
 }
 
 // getStatistics executes the command "SHOW STATS" (indirectly)
-func (ic *InfluxdbCollector) getStatistics() {
-
-	err := ic.getData(typeStats)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Cannot get influxdb internal statistics, err=", err)
-	}
+func (ic *InfluxdbCollector) getStatistics() error {
+	return ic.getData(typeStats)
 }
 
 // getData executes a command specified by given `type` of desired data
@@ -172,7 +211,7 @@ func (ic *InfluxdbCollector) getData(kind int) error {
 
 	for seriesName, series := range results {
 		for columnName := range series.Data {
-			key := createNamespace(nsType, seriesName, columnName)
+			key := createKey(nsType, seriesName, columnName)
 			ic.data[key] = datum{
 				value: series.Data[columnName],
 				tags:  series.Tags,
@@ -184,22 +223,21 @@ func (ic *InfluxdbCollector) getData(kind int) error {
 	return nil
 }
 
-// handleErr handles critical error indicated with an abnormal state of plugin
-func handleErr(err error) {
-	if err != nil {
-		panic(err)
-	}
+// createKey returns a key which identify metric's key which is composed from metric's type (might equal `stats` or `diagn`)
+// and component name; all elements are joined to a single string
+func createKey(nsType, seriesName, columnName string) string {
+	seriesName = strings.Replace(seriesName, "/", "_", -1)
+	columnName = strings.Replace(columnName, "/", "_", -1)
+	return strings.Join([]string{nsType, seriesName, columnName}, "/")
 }
 
-// createNamespace returns namespace composed from prefix, type of metric and metric name's components (the elements are joined to a single string)
-func createNamespace(nsType, seriesName, columnName string) string {
-	ns := append(prefix, nsType)
-	ns = append(ns, seriesName)
-	ns = append(ns, columnName)
-	return strings.Join(ns, "/")
+// reflectKey returns corresponding metric's key based on metric's namespace
+func reflectKey(ns plugin.Namespace) string {
+	// skip metric's prefix and join the rest of elements
+	return strings.Join(ns.Strings()[len(prefix):], "/")
 }
 
-//splitNamespace splits namespace (repesented by single string `s`) and returns  a slice of the substrings between slash separator
-func splitNamespace(ns string) []string {
-	return strings.Split(ns, "/")
+// splitKey returns a slice of the substrings between slash separator
+func splitKey(key string) []string {
+	return strings.Split(key, "/")
 }

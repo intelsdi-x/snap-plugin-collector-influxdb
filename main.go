@@ -15,20 +15,14 @@ limitations under the License.
 package main
 
 import (
-	"os"
 
-	// Import the snap plugin library
-	"github.com/intelsdi-x/snap/control/plugin"
+	// Import the snap plugin Go library
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 
-	// Import our collector plugin implementabtion
+	// Import our collector plugin implementation
 	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb"
 )
 
 func main() {
-
-	plugin.Start(
-		plugin.NewPluginMeta(influxdb.Name, influxdb.Version, influxdb.Type, []string{}, []string{plugin.SnapGOBContentType}, plugin.ConcurrencyCount(1)),
-		influxdb.New(),
-		os.Args[1],
-	)
+	plugin.StartCollector(influxdb.New(), influxdb.Name, influxdb.Version)
 }

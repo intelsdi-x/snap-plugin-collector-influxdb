@@ -20,12 +20,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb/dtype"
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 
-	"github.com/intelsdi-x/snap/control/plugin"
-	"github.com/intelsdi-x/snap/core"
-	"github.com/intelsdi-x/snap/core/cdata"
-	"github.com/intelsdi-x/snap/core/ctypes"
+	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb/dtype"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
@@ -45,7 +42,7 @@ func (mc *mcMock) GetDiagnostics() (dtype.Results, error) {
 	return args.Get(0).(dtype.Results), args.Error(1)
 }
 
-func (mc *mcMock) InitURLs(settings map[string]interface{}) error {
+func (mc *mcMock) InitURLs(string, int64, string, string) error {
 	args := mc.Called()
 	return args.Error(0)
 }
@@ -86,24 +83,19 @@ var mockDiagn = dtype.Results{
 	},
 }
 
-var mockMtsStat = []plugin.MetricType{
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "shard", "1", "columnA")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "shard", "1", "columnB")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "shard", "1", "columnC")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "httpd", "columnA")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "httpd", "columnB")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "httpd", "columnC")},
+var mockMtsStat = []plugin.Metric{
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "stat", "shard", "1", "columnA")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "stat", "shard", "1", "columnB")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "stat", "shard", "1", "columnC")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "stat", "httpd", "columnA")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "stat", "httpd", "columnB")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "stat", "httpd", "columnC")},
 }
 
-var mockMtsDiagn = []plugin.MetricType{
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "diagn", "build", "columnA")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "diagn", "build", "columnB")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "diagn", "build", "columnC")},
-}
-
-var mockMtsWildCards = []plugin.MetricType{
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "diagn", "*")},
-	plugin.MetricType{Namespace_: core.NewNamespace("intel", "influxdb", "stat", "*")},
+var mockMtsDiagn = []plugin.Metric{
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "diagn", "build", "columnA")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "diagn", "build", "columnB")},
+	plugin.Metric{Namespace: plugin.NewNamespace("intel", "influxdb", "diagn", "build", "columnC")},
 }
 
 // Mts is a mocked metrics, both statistical and diagnostic
@@ -112,61 +104,68 @@ var mockMts = append(mockMtsStat, mockMtsDiagn...)
 func TestGetConfigPolicy(t *testing.T) {
 	influxdbPlugin := New()
 
-	Convey("getting config policy", t, func() {
+	Convey("Getting config policy", t, func() {
 		So(func() { influxdbPlugin.GetConfigPolicy() }, ShouldNotPanic)
-		_, err := influxdbPlugin.GetConfigPolicy()
+		policy, err := influxdbPlugin.GetConfigPolicy()
 		So(err, ShouldBeNil)
+		So(policy, ShouldNotBeNil)
 	})
 }
 
 func TestGetMetricTypes(t *testing.T) {
 
-	Convey("initialization fails", t, func() {
-
+	Convey("Initialization fails", t, func() {
 		Convey("when no config items available", func() {
 			influxdbPlugin := New()
-			cfg := plugin.NewPluginConfigType()
+			cfg := plugin.Config{}
 
-			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldPanic)
+			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
+			results, err := influxdbPlugin.GetMetricTypes(cfg)
+			So(err, ShouldNotBeNil)
+			So(results, ShouldBeEmpty)
 		})
-
 		Convey("when one of config item is not available", func() {
 			influxdbPlugin := New()
-			cfg := plugin.NewPluginConfigType()
-			cfg.DeleteItem("user")
+			cfg := getMockConfig()
+			delete(cfg, "user")
 
-			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldPanic)
+			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
+			results, err := influxdbPlugin.GetMetricTypes(cfg)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "config item not found")
+			So(results, ShouldBeEmpty)
 		})
-
 		Convey("when config item has different type than expected", func() {
 			influxdbPlugin := New()
-			cfg := plugin.NewPluginConfigType()
-			cfg.DeleteItem("port")
-			cfg.AddItem("port", ctypes.ConfigValueStr{Value: "1234"})
+			cfg := getMockConfig()
+			// set a valid value as a port (expected int64 type)
+			cfg["port"] = "1234"
 
-			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldPanic)
+			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
+			results, err := influxdbPlugin.GetMetricTypes(cfg)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "config item is not an int64")
+			So(results, ShouldBeEmpty)
 		})
-
 		Convey("when initialization of URLs returns error", func() {
 			mc := &mcMock{}
-			influxdbPlugin := New()
-			influxdbPlugin.service = mc
-			cfg := plugin.NewPluginConfigType()
+			influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
+			cfg := getMockConfig()
 
 			mc.On("InitURLs").Return(errors.New("x"))
 
-			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldPanic)
+			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
+			results, err := influxdbPlugin.GetMetricTypes(cfg)
+			So(err, ShouldNotBeNil)
+			So(results, ShouldBeEmpty)
 		})
-
 	})
 
 	Convey("Metrics are not available", t, func() {
-
 		Convey("when cannot obtain any data", func() {
 			mc := &mcMock{}
-			influxdbPlugin := New()
-			influxdbPlugin.service = mc
-			cfg := getMockPluginConfig()
+			influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
+			cfg := getMockConfig()
 
 			mc.On("InitURLs").Return(nil)
 			mc.On("GetStatistics").Return(dtype.Results{}, errors.New("x"))
@@ -174,16 +173,13 @@ func TestGetMetricTypes(t *testing.T) {
 
 			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
 			results, err := influxdbPlugin.GetMetricTypes(cfg)
-
+			So(err, ShouldNotBeNil)
 			So(results, ShouldBeEmpty)
-			So(err, ShouldBeNil)
 		})
-
-		Convey("when cannot obtain statictics data", func() {
+		Convey("when cannot obtain statistics data", func() {
 			mc := &mcMock{}
-			influxdbPlugin := New()
-			influxdbPlugin.service = mc
-			cfg := getMockPluginConfig()
+			influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
+			cfg := getMockConfig()
 
 			mc.On("InitURLs").Return(nil)
 			mc.On("GetStatistics").Return(dtype.Results{}, errors.New("x"))
@@ -191,194 +187,109 @@ func TestGetMetricTypes(t *testing.T) {
 
 			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
 			results, err := influxdbPlugin.GetMetricTypes(cfg)
-
-			So(results, ShouldNotBeEmpty)
-			So(err, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(results, ShouldBeEmpty)
 		})
-
 		Convey("when cannot obtain diagnostics data", func() {
 			mc := &mcMock{}
-			influxdbPlugin := New()
-			influxdbPlugin.service = mc
-			cfg := getMockPluginConfig()
+			influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
+			cfg := getMockConfig()
 
 			mc.On("InitURLs").Return(nil)
 			mc.On("GetStatistics").Return(mockStats, nil)
 			mc.On("GetDiagnostics").Return(dtype.Results{}, errors.New("x"))
 
 			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
-
-			So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
 			results, err := influxdbPlugin.GetMetricTypes(cfg)
-
-			So(results, ShouldNotBeEmpty)
-			So(err, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(results, ShouldBeEmpty)
 		})
 	})
-
-	Convey("successfull getting metrics types", t, func() {
+	Convey("Successful getting metrics types", t, func() {
 		mc := &mcMock{}
-		influxdbPlugin := New()
-		influxdbPlugin.service = mc
-		cfg := getMockPluginConfig()
+		influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
+		cfg := getMockConfig()
 
 		mc.On("InitURLs").Return(nil)
 		mc.On("GetStatistics").Return(mockStats, nil)
 		mc.On("GetDiagnostics").Return(mockDiagn, nil)
 
 		So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
-
-		So(func() { influxdbPlugin.GetMetricTypes(cfg) }, ShouldNotPanic)
 		results, err := influxdbPlugin.GetMetricTypes(cfg)
-
-		So(results, ShouldNotBeEmpty)
 		So(err, ShouldBeNil)
+		So(results, ShouldNotBeEmpty)
 	})
-
 }
 
 func TestCollectMetrics(t *testing.T) {
 
 	mts := getMockMetricsConfigured()
 
-	Convey("initialization fails", t, func() {
+	Convey("Initialization fails", t, func() {
 		mc := &mcMock{}
-		influxdbPlugin := New()
-		influxdbPlugin.service = mc
+		influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
 
 		mc.On("InitURLs").Return(errors.New("x"))
 
-		So(func() { influxdbPlugin.CollectMetrics(mts) }, ShouldPanic)
+		So(func() { influxdbPlugin.CollectMetrics(mts) }, ShouldNotPanic)
+		results, err := influxdbPlugin.CollectMetrics(mts)
+		So(err, ShouldNotBeNil)
+		So(results, ShouldBeEmpty)
 	})
-
-	Convey("metrics are not available", t, func() {
+	Convey("Metrics are not available", t, func() {
 		mc := &mcMock{}
-		influxdbPlugin := New()
-		influxdbPlugin.service = mc
-
+		influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
 		mc.On("InitURLs").Return(nil)
 
-		Convey("when statistics data are not available", func() {
+		Convey("when cannot get statistics data", func() {
 			mc.On("GetStatistics").Return(dtype.Results{}, errors.New("x"))
 			mc.On("GetDiagnostics").Return(mockDiagn, nil)
 
-			So(func() { influxdbPlugin.CollectMetrics(mts) }, ShouldNotPanic)
-
 			results, err := influxdbPlugin.CollectMetrics(mts)
-
-			So(len(results), ShouldEqual, len(mockMtsDiagn))
-			So(err, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(results, ShouldBeEmpty)
 		})
-
-		Convey("when diagnostics data are not available", func() {
+		Convey("when cannot get diagnostics data", func() {
+			influxdbPlugin.initialized = false
 			mc.On("GetStatistics").Return(mockStats, nil)
-			mc.On("GetDiagnostics").Return(dtype.Results{}, nil)
-
-			So(func() { influxdbPlugin.CollectMetrics(mts) }, ShouldNotPanic)
+			mc.On("GetDiagnostics").Return(dtype.Results{}, errors.New("x"))
 
 			results, err := influxdbPlugin.CollectMetrics(mts)
-
-			So(len(results), ShouldEqual, len(mockMtsStat))
-			So(err, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(results, ShouldBeEmpty)
 		})
-
 	})
-
-	Convey("invalid metrics namespaces", t, func() {
+	Convey("Successful collecting metrics", t, func() {
 		mc := &mcMock{}
-		influxdbPlugin := New()
-		influxdbPlugin.service = mc
-		cfg := getMockMetricConfig()
-
+		influxdbPlugin := &InfluxdbCollector{initialized: false, service: mc, data: map[string]datum{}}
 		mc.On("InitURLs").Return(nil)
 		mc.On("GetStatistics").Return(mockStats, nil)
 		mc.On("GetDiagnostics").Return(mockDiagn, nil)
 
-		Convey("when series type is unknown", func() {
-			mtsInvalid := []plugin.MetricType{
-				plugin.MetricType{
-					Namespace_: core.NewNamespace("intel", "influxdb", "unknown", "shard", "1", "columnA"),
-					Config_:    cfg,
-				},
-			}
-
-			So(func() { influxdbPlugin.CollectMetrics(mtsInvalid) }, ShouldNotPanic)
-
-			results, err := influxdbPlugin.CollectMetrics(mtsInvalid)
-
-			So(results, ShouldBeEmpty)
-			So(err, ShouldBeNil)
-		})
-
-		Convey("when series name is empty", func() {
-			mtsInvalid := []plugin.MetricType{
-				plugin.MetricType{
-					Namespace_: core.NewNamespace("intel", "influxdb", "stats", ""),
-					Config_:    cfg,
-				},
-			}
-			So(func() { influxdbPlugin.CollectMetrics(mtsInvalid) }, ShouldNotPanic)
-
-			results, err := influxdbPlugin.CollectMetrics(mtsInvalid)
-
-			So(results, ShouldBeEmpty)
-			So(err, ShouldBeNil)
-		})
-
+		results, err := influxdbPlugin.CollectMetrics(mts)
+		So(err, ShouldBeNil)
+		So(results, ShouldNotBeEmpty)
+		So(len(results), ShouldEqual, len(mockMts))
 	})
-
-	Convey("successfull collect metrics", t, func() {
-
-		mc := &mcMock{}
-		influxdbPlugin := New()
-		influxdbPlugin.service = mc
-
-		mc.On("InitURLs").Return(nil)
-		mc.On("GetStatistics").Return(mockStats, nil)
-		mc.On("GetDiagnostics").Return(mockDiagn, nil)
-
-		Convey("when metrics namespaces are deliver directly", func() {
-
-			So(func() { influxdbPlugin.CollectMetrics(mts) }, ShouldNotPanic)
-
-			results, err := influxdbPlugin.CollectMetrics(mts)
-
-			So(results, ShouldNotBeEmpty)
-			So(err, ShouldBeNil)
-		})
-	})
-
 }
 
-func getMockPluginConfig() plugin.ConfigType {
-	// mocking global config
-	cfg := plugin.NewPluginConfigType()
-	cfg.AddItem("host", ctypes.ConfigValueStr{Value: "hostname"})
-	cfg.AddItem("port", ctypes.ConfigValueInt{Value: 1234})
-	cfg.AddItem("user", ctypes.ConfigValueStr{Value: "test"})
-	cfg.AddItem("password", ctypes.ConfigValueStr{Value: "passwd"})
-
-	return cfg
+func getMockConfig() plugin.Config {
+	// mocking config
+	return plugin.Config{
+		"host":     "hostname",
+		"port":     int64(1234),
+		"user":     "test",
+		"password": "passwd",
+	}
 }
 
-func getMockMetricConfig() *cdata.ConfigDataNode {
-	// mocking metric config
-	cfg := cdata.NewNode()
-	cfg.AddItem("host", ctypes.ConfigValueStr{Value: "hostname"})
-	cfg.AddItem("port", ctypes.ConfigValueInt{Value: 1234})
-	cfg.AddItem("user", ctypes.ConfigValueStr{Value: "test"})
-	cfg.AddItem("password", ctypes.ConfigValueStr{Value: "passwd"})
-
-	return cfg
-}
-
-func getMockMetricsConfigured() []plugin.MetricType {
+func getMockMetricsConfigured() []plugin.Metric {
 	mts := mockMts
-	cfg := getMockMetricConfig()
+	cfg := getMockConfig()
 
 	// add mocked config to each metric
 	for i := range mts {
-		mts[i].Config_ = cfg
+		mts[i].Config = cfg
 	}
 
 	return mts
