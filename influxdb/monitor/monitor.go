@@ -20,10 +20,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-influxdb/influxdb/parser"
+)
+
+const (
+	queryStatementStats = "show stats"
+	queryStatementDiagn = "show diagnostics"
 )
 
 // Monitoring is an interface represents data monitoring service
@@ -31,7 +37,7 @@ import (
 type Monitoring interface {
 	GetStatistics() (dtype.Results, error)
 	GetDiagnostics() (dtype.Results, error)
-	InitURLs(sets map[string]interface{}) error
+	InitURLs(string, int64, string, string) error
 }
 
 // Monitor holds urls
@@ -51,37 +57,43 @@ func (m *Monitor) GetDiagnostics() (dtype.Results, error) {
 }
 
 // InitURLs initializes URLs based on settings
-func (m *Monitor) InitURLs(settings map[string]interface{}) error {
-	var err1, err2 error
+func (m *Monitor) InitURLs(host string, port int64, user string, passwd string) error {
+	errs := []error{}
+	var err error
 
-	m.urlStatistic, err1 = createURL(settings, "show stats")
-	if err1 != nil {
-		fmt.Fprintln(os.Stderr, "Cannot parse raw url into a URL structure with `show stats` query, err=", err1)
+	if m.urlStatistic, err = createURL(host, port, user, passwd, queryStatementStats); err != nil {
+		errs = append(errs, err)
+
+		log.WithFields(log.Fields{
+			"block":    "monitor",
+			"function": "InitURLs",
+			"err":      err,
+		}).Errorf("Cannot parse raw url into a URL structure with query `%s`", queryStatementStats)
 	}
 
-	m.urlDiagnostic, err2 = createURL(settings, "show diagnostics")
-	if err2 != nil {
-		fmt.Fprintln(os.Stderr, "Cannot parse raw url into a URL structure with `show diagnostics` query, err=", err2)
-	}
+	if m.urlDiagnostic, err = createURL(host, port, user, passwd, queryStatementDiagn); err != nil {
+		errs = append(errs, err)
 
-	if err1 != nil && err2 != nil {
-		return errors.New("Invalid URL-encoding")
+		log.WithFields(log.Fields{
+			"block":    "monitor",
+			"function": "InitURLs",
+			"err":      err,
+		}).Errorf("Cannot parse raw url into a URL structure with query `%s`", queryStatementDiagn)
+	}
+	if len(errs) != 0 {
+		return errors.New("Cannot initialize URLs, invalid URL-encoding")
 	}
 
 	return nil
 }
 
-// createURL returns URL structure created base on `sets` (keeps info about hostname, port, etc.) and query state
-func createURL(sets map[string]interface{}, query string) (*url.URL, error) {
-	p, ok := sets["port"].(int)
-	if !ok {
-		return nil, fmt.Errorf("Invalid port value")
-	}
+// createURL returns URL structure created base on hostname, port, credentials and query statement
+func createURL(host string, port int64, user string, passwd string, query string) (*url.URL, error) {
 	u, err := url.Parse(fmt.Sprintf("http://%s:%d/query?u=%s&p=%s&pretty=true",
-		sets["host"].(string),
-		p,
-		sets["user"].(string),
-		sets["password"].(string),
+		host,
+		port,
+		user,
+		passwd,
 	))
 
 	if err != nil {
