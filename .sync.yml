@@ -1,4 +1,16 @@
 .travis.yml:
+  env:
+    global:
+    - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
+    - SNAP_PLUGIN_SOURCE=/home/travis/gopath/src/github.com/${TRAVIS_REPO_SLUG}
+    - GLIDE_HOME="${HOME}/.glide"
+    matrix:
+    - TEST_TYPE=small
+    - TEST_TYPE=large
+  matrix:
+    exclude:
+    - go: 1.6.x
+      env: TEST_TYPE=large
   deploy:
     access_key_id: AKIAINMB43VSSPFZISAA
     secret_access_key:
