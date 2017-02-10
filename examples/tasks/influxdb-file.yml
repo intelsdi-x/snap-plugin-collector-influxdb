@@ -1,0 +1,18 @@
+---
+version: 1
+schedule:
+  type: simple
+  interval: 1s
+max-failures: 1
+workflow:
+  collect:
+    metrics:
+      /intel/influxdb/stat/write/req: {}
+    config: 
+      /intel/influxdb:
+        host: influxdb
+    process: 
+    publish:
+    - plugin_name: file
+      config:
+        file: /tmp/published_influxdb_internal_monitoring
