@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # File managed by pluginsync
 
 # http://www.apache.org/licenses/LICENSE-2.0.txt
@@ -41,14 +41,8 @@ export CGO_ENABLED=0
 _debug "removing: ${build_dir:?}/*"
 rm -rf "${build_dir:?}/"*
 
+_info "building plugin: ${plugin_name}"
 export GOOS=linux
 export GOARCH=amd64
-_info "building plugin: ${plugin_name} for ${GOOS} on ${GOARCH}"
-mkdir -p "${build_dir}/${GOOS}/x86_64"
-"${go_build[@]}" -o "${build_dir}/${GOOS}/x86_64/${plugin_name}" . || exit 1
-
-export GOOS=darwin
-export GOARCH=amd64
-_info "building plugin: ${plugin_name} for ${GOOS} on ${GOARCH}"
 mkdir -p "${build_dir}/${GOOS}/x86_64"
 "${go_build[@]}" -o "${build_dir}/${GOOS}/x86_64/${plugin_name}" . || exit 1
