@@ -34,7 +34,7 @@ const (
 	// Name of plugin
 	Name = "influxdb"
 	// Version of plugin
-	Version = 6
+	Version = 7
 
 	nsVendor = "intel"
 	nsClass  = "influxdb"
