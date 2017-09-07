@@ -1,11 +1,11 @@
 # File managed by pluginsync
 sudo: true
-services:
-- docker
 language: go
 go:
 - 1.7.x
 - 1.8.x
+services:
+- docker
 env:
   global:
   - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
