@@ -4,17 +4,17 @@ This plugin collects statistical and diagnostic information about each InfluxDB 
 
 This plugin has ability to gather InfluxDB internal system monitoring information in response to the following commands: `SHOW STATS` and `SHOW DIAGNOSTICS`.
 
-The plugin is used in the [Snap framework] (http://github.com/intelsdi-x/snap).				
+The plugin is used in the [Snap framework](http://github.com/intelsdi-x/snap).				
 1. [Getting Started](#getting-started)
-  * [System Requirements](#system-requirements)
-  * [Operating systems](#operating-systems)
-  * [Installation](#installation)
-  * [Configuration and Usage](#configuration-and-usage)
+   * [System Requirements](#system-requirements)
+   * [Operating systems](#operating-systems)
+   * [Installation](#installation)
+   * [Configuration and Usage](#configuration-and-usage)
 2. [Documentation](#documentation)
-  * [Global Config](#global-config)
-  * [Collected Metrics](#collected-metrics)
-  * [Examples](#examples)
-  * [Roadmap](#roadmap)
+   * [Global Config](#global-config)
+   * [Collected Metrics](#collected-metrics)
+   * [Examples](#examples)
+   * [Roadmap](#roadmap)
 3. [Community Support](#community-support)
 4. [Contributing](#contributing)
 5. [License](#license)
@@ -25,7 +25,7 @@ The plugin is used in the [Snap framework] (http://github.com/intelsdi-x/snap).
 ### System Requirements
 
 - Linux 64bit system
-- InfluxDB (version 0.9 or higher)
+- [InfluxDB](https://github.com/influxdata/influxdb) (version 0.9 or higher)
 
 ### Operating systems
 
@@ -39,7 +39,7 @@ You can get the pre-built binaries for your OS and architecture from the plugin'
 
 #### To build the plugin binary:
 
-Fork https://github.com/intelsdi-x/snap-plugin-collector-influxdb
+Fork https://github.com/intelsdi-x/snap-plugin-collector-influxdb  
 Clone repo into `$GOPATH/src/github.com/intelsdi-x/`:
 
 ```
@@ -61,13 +61,13 @@ This builds the plugin in `./build/`
 
 To learn more about influxDB System Monitoring, visit:
 
-* [InfluxDB Server Monitoring Documentation] (https://docs.influxdata.com/influxdb/v0.9/administration/statistics/)
-* [InfluxDB Server Monitoring README] (https://github.com/influxdata/influxdb/blob/master/monitor/README.md)
+* [InfluxDB Server Monitoring Documentation](https://docs.influxdata.com/influxdb/v0.9/administration/statistics/)
+* [InfluxDB Server Monitoring README](https://github.com/influxdata/influxdb/blob/master/monitor/README.md)
 * blog post ["How to use the show stats command to monitor InfluxDB"](https://influxdata.com/blog/how-to-use-the-show-stats-command-and-the-_internal-database-to-monitor-influxdb/)
 
 ### Global Config
 
-Global configuration file is described in Snap's documentation. For this plugin section "influxdb" in "collector" specifing the following options needs to be added (see [exemplary configs file](examples/configs/snap-config-sample.json)):
+Global configuration file is described in Snap's documentation. For this plugin section "influxdb" in "collector" specifing the following options needs to be added (see an [exemplary config file](examples/configs/snap-config-sample.json)):
 
 Name 	  	| Data Type | Description
 ------------|-----------|-----------------------
@@ -83,7 +83,7 @@ List of collected metrics is described in [METRICS.md](METRICS.md).
 ### Examples
 
 Example of running Snap influxdb collector and writing data to file.
-Download an [example Snap global config](examples/configs/snap-config-sample.json) file.
+Download an [example of Snap global config](examples/configs/snap-config-sample.json) file.
 ```
 $ curl -sfLO https://raw.githubusercontent.com/intelsdi-x/snap-plugin-collector-influxdb/master/examples/configs/snap-config-sample.json
 ```
@@ -164,7 +164,7 @@ NAMESPACE                                                VERSIONS
 /intel/influxdb/stat/write/write_ok                      2
 ```
 
-Download an [example task file](examples/tasks/influxdb-file.json) and load it:
+Download an [exemplary task manifest](examples/tasks/influxdb-file.json) and load it:
 ```
 $ curl -sfLO https://raw.githubusercontent.com/intelsdi-x/snap-plugin-collector-influxdb/master/examples/tasks/influxdb-file.json
 $ snaptel task create -t influxdb-file.json
@@ -215,7 +215,7 @@ If you have a feature request, please add it as an [issue](https://github.com/in
 ## Community Support
 This repository is one of **many** plugins in **Snap**, a powerful telemetry framework. See the full project at http://github.com/intelsdi-x/snap.
 
-To reach out to other users, head to the [main framework](https://github.com/intelsdi-x/snap#community-support).
+To reach out to other users, head to the [main framework](https://github.com/intelsdi-x/snap#community-support) or visit [Slack](http://slack.snap-telemetry.io).
 
 ## Contributing
 We love contributions!
