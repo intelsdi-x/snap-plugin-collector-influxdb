@@ -1,5 +1,5 @@
 hash: cd5a51e67249dc54d47ca4b51cfa764556834500534383cb73f599df8b27e46e
-updated: 2017-10-31T06:31:33.96103482+08:00
+updated: 2017-10-31T07:13:47.124557202+08:00
 imports:
 - name: github.com/golang/protobuf
   version: 748d386b5c1ea99658fd69fe9f03991ce86a90c1
@@ -30,6 +30,7 @@ imports:
   - context
   - http2
   - http2/hpack
+  - idna
   - internal/timeseries
   - lex/httplex
   - trace
@@ -38,12 +39,19 @@ imports:
   subpackages:
   - unix
   - windows
+- name: golang.org/x/text
+  version: 6eab0e8f74e86c598ec3b6fad4888e0c11482d48
+  subpackages:
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
 - name: google.golang.org/genproto
   version: f676e0f3ac6395ff1a529ae59a6670878a8371a6
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: b8669c35455183da6d5c474ea6e72fbf55183274
+  version: 61d37c5d657a47e4404fd6823bd598341a2595de
   subpackages:
   - balancer
   - codes
