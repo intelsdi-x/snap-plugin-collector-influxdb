@@ -20,9 +20,8 @@ import (
 	"io/ioutil"
 	"reflect"
 
-	log "github.com/Sirupsen/logrus"
-
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
+	log "github.com/sirupsen/logrus"
 
 	"encoding/json"
 	"net/http"
